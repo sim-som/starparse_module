@@ -42,10 +42,18 @@ DATATYPES_COLS = {
     "_rlnOverallFourierCompleteness": float,
     "_rlnClassPriorOffsetX": float,
     "_rlnClassPriorOffsetY": float,
+    "_rlnResolution": float,
+    "_rlnAngstromResolution": float,
+    "_rlnFourierShellCorrelationCorrected": float,
+    "_rlnFourierShellCorrelationParticleMaskFraction": float,
+    "_rlnFourierShellCorrelationParticleMaskFraction": float,
+    "_rlnFourierShellCorrelationMaskedMaps": float,
+    "_rlnCorrectedFourierShellCorrelationPhaseRandomizedMaskedMaps": float,                
     "_rlnGroupNumber": int,
     "_rlnHelicalTubeID": int,
     "_rlnClassNumber": int,
     "_rlnNrOfSignificantSamples": int,
+    "_rlnSpectralIndex": int,
     "_rlnImageName": str,
     "_rlnMicrographName": str,
     "_rlnOpticsGroup": str,
@@ -160,6 +168,75 @@ def parse_star_particle_data(star_file_path:str) -> pd.DataFrame:
     particle_df = particle_df.dropna()
     return particle_df
 
+
+def parse_star_fsc_data(star_file_path:str) -> pd.DataFrame:
+    """
+        TODO
+    """
+    def parse_column_names(star_file_path:str) -> list:
+        parse_cols = False
+        col_names = []
+
+        at_fsc_data_position = False
+
+        with open(star_file_path, mode="r", encoding="utf-8") as f:
+            for row in f:
+                if row[0:4] == "_rln" and parse_cols and at_fsc_data_position:
+                    col = row.split(" ")[0]
+                    col_names.append(col)
+
+
+                if row.strip() == "loop_" and at_fsc_data_position:
+                    parse_cols = True
+                    print("Parsing column names ...")
+                
+                if row.strip() == "data_fsc":
+                    print("data_fsc")
+                    at_fsc_data_position = True
+                
+
+        print("Detected columns:", col_names)
+        return col_names
+
+    col_names = parse_column_names(star_file_path)
+
+    parsing = False
+    at_fsc_data_position = False
+    particle_data = []
+    with open(star_file_path, mode="r", encoding="utf-8") as f:
+        for row in f:
+            if row.strip() == "":
+                continue
+            if parsing and row[0:4] != "_rln" and at_fsc_data_position:
+                row_vals:list = row.split()
+                fsc_dict = dict(zip(col_names, row_vals))
+
+                # parse datatypes:
+                for col_name, val in fsc_dict.items():
+                    try:
+                        fsc_dict[col_name] = DATATYPES_COLS[col_name](val)
+                    except KeyError:
+                        fsc_dict[col_name] = str(val)
+                    except ValueError:
+                        fsc_dict[col_name] = str(val)
+
+                particle_data.append(fsc_dict)
+
+            if row.strip() == "loop_" and at_fsc_data_position:
+                parsing = True
+                print("Parsing values ...")
+            
+            if row.strip() == "data_fsc":
+                at_fsc_data_position = True
+            
+            
+
+    # generate DataFrame from list of dicts:
+    particle_df = pd.DataFrame(particle_data)
+    particle_df = particle_df.dropna()
+    return particle_df
+
+
 def parse_2dclasses_starfile(star_file_path):
     """
     Parse data about 2D classes from e.g. a model.star file from a Class2D-job or a class_averages.star file from a Select-job.
@@ -197,39 +274,40 @@ def parse_2dclasses_starfile(star_file_path):
     col_names = parse_column_names(star_file_path)
 
     parsing = False
-    at_particle_data_position = False
-    particle_data = []
+    at_classes2d_data_position = False
+    classes2d_data = []
     with open(star_file_path, mode="r", encoding="utf-8") as f:
         for row in f:
             if row.strip() == "":
                 continue
-            if parsing and row[0:4] != "_rln" and at_particle_data_position:
+            if parsing and row[0:4] != "_rln" and at_classes2d_data_position:
                 if len(row.strip()) == 0:
                     break
                 row_vals:list = row.split()
                 particle_dict = dict(zip(col_names, row_vals))
 
-                # parse datatypes:
-                for col_name, val in particle_dict.items():
-                    try:
-                        particle_dict[col_name] = DATATYPES_COLS[col_name](val)
-                    except KeyError:
-                        particle_dict[col_name] = str(val)
+                # # parse datatypes:
+                # for col_name, val in particle_dict.items():
+                #     try:
+                #         particle_dict[col_name] = DATATYPES_COLS[col_name](val)
+                #     except KeyError:
+                #         particle_dict[col_name] = str(val)
 
-                particle_data.append(particle_dict)
+                classes2d_data.append(particle_dict)
 
-            if row.strip() == "loop_" and at_particle_data_position:
+            if row.strip() == "loop_" and at_classes2d_data_position:
                 parsing = True
                 print("Parsing values ...")
             
             if row.strip() == "data_":
-                at_particle_data_position = True
+                at_classes2d_data_position = True
             
             
 
     # generate DataFrame from list of dicts:
-    particle_df = pd.DataFrame(particle_data)
-    particle_df = particle_df.dropna()
+    particle_df = pd.DataFrame(classes2d_data)
+    particle_df = particle_df.apply(pd.to_numeric, errors="ignore")
+    # particle_df = particle_df.dropna()
     return particle_df
 
 
