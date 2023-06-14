@@ -3,9 +3,7 @@ from pathlib import Path
 import numpy as np
 
 
-    
-
-def parse_general_star_file(star_file_path: Path, keyword: str) -> pd.DataFrame:
+def parse_star_file(star_file_path: Path, keyword: str) -> pd.DataFrame:
 
     assert star_file_path.exists()
     assert star_file_path.is_file()
@@ -18,6 +16,11 @@ def parse_general_star_file(star_file_path: Path, keyword: str) -> pd.DataFrame:
 
         with open(star_file_path, mode="r", encoding="utf-8") as f:
             for row in f:
+
+                # end column name parsing after last line starting with "_rln"
+                if parse_cols and row[0:4] != "_rln":
+                    break
+
                 if row[0:4] == "_rln" and parse_cols and at_keyword_position:
                     col = row.split(" ")[0]
                     col = col[4:]
@@ -36,6 +39,7 @@ def parse_general_star_file(star_file_path: Path, keyword: str) -> pd.DataFrame:
 
     col_names = parse_column_names(star_file_path)
 
+
     parsing = False
     at_keyword_position = False
     data = []
@@ -43,10 +47,17 @@ def parse_general_star_file(star_file_path: Path, keyword: str) -> pd.DataFrame:
         for row in f:
             if row.strip() == "":
                 continue
-            if parsing and row[0:4] != "_rln" and at_keyword_position:
-                row_vals: list = row.split()
+        
+            row_vals:list = row.split()
+            
+            # stop parsing when data block is finished.
+            if parsing and row.strip() == "loop_":
+                break
+            
+            # parse if all conditions are met:
+            if parsing and at_keyword_position and len(row_vals) == len(col_names):
+                # print(row_vals)
                 row_dict = dict(zip(col_names, row_vals))
-
                 data.append(row_dict)
 
             if row.strip() == "loop_" and at_keyword_position:
@@ -63,6 +74,7 @@ def parse_general_star_file(star_file_path: Path, keyword: str) -> pd.DataFrame:
     data_df = data_df.apply(pd.to_numeric, errors="ignore")
 
     return data_df
+
 
 def write_to_file(optics_data_str:str, particle_df:pd.DataFrame, output_file):
     """

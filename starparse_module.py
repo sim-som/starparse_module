@@ -94,30 +94,3 @@ def parse_star_file(star_file_path: Path, keyword: str) -> pd.DataFrame:
     return data_df
 
 ##################################################################################
-
-def main():
-
-    teststring = "4"
-    print(DATATYPES_COLS["_rlnAnglePsiPrior"](teststring))
-    print(DATATYPES_COLS["_rlnHelicalTubeID"](teststring))
-    print(DATATYPES_COLS["_rlnImageName"](teststring))
-
-    test_file = "relion4_processing/Extract/job030/particles_small.star"
-
-    part_df = parse_star_file(test_file, reduce_mem=True)
-    print(part_df.head())
-
-    print(part_df.info())
-
-    mem_usage = part_df.memory_usage().sum() / 1024**2
-    print(f"Memory usage: {mem_usage} MB")
-
-    ##
-    metadata = parse_optics_metadata(test_file)
-
-    ##
-
-    write_to_file(metadata, part_df, "test_output.star")
-
-if __name__ == "__main__":
-    main()
